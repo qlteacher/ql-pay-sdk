@@ -1,0 +1,215 @@
+stages:
+  - build
+  - push
+  - deploy
+
+.image_define: &build_image
+  image: images.qlteacher.com/base/build:0.0.1
+
+.push_script: 
+  script: &push_images
+    - echo $HARBOR_PASS | docker login -u admin --password-stdin images.qlteacher.com
+    - ENV_RESULT=$(echo $CI_COMMIT_TAG|grep "dev")
+    - >
+      wget_dockerfile(){
+        wget --header "PRIVATE-TOKEN:${GITLAB_TOKEN}" $CONF_REPO/docker%2Fcommon-java-container/raw?ref=master -O Dockerfile
+        sed -i 's/pro/dev/g' Dockerfile
+        echo "ADD build/libs/cert /usr/local/app/cert" >>Dockerfile
+      }
+    - >
+      push_dev(){
+        sed -i "s/8080/$DEV_JAVA_PORT/g" Dockerfile
+        sed -i "s/20880/$DEV_DUBBO_PORT/g" Dockerfile
+        docker build --cache-from images.qlteacher.com/app/$CI_PROJECT_NAME-$1:latest -t images.qlteacher.com/app/$CI_PROJECT_NAME-$1:$CI_COMMIT_TAG .
+        docker push images.qlteacher.com/app/$CI_PROJECT_NAME-$1:$CI_COMMIT_TAG
+      }
+    - >
+      push_fat(){
+        docker build --cache-from images.qlteacher.com/app/$CI_PROJECT_NAME-$1:latest -t images.qlteacher.com/app/$CI_PROJECT_NAME-$1:$CI_COMMIT_TAG .
+        docker push images.qlteacher.com/app/$CI_PROJECT_NAME-$1:$CI_COMMIT_TAG
+        docker tag images.qlteacher.com/app/$CI_PROJECT_NAME-$1:$CI_COMMIT_TAG images.qlteacher.com/app/$CI_PROJECT_NAME-$1:latest
+        docker push images.qlteacher.com/app/$CI_PROJECT_NAME-$1:latest
+      }
+    - >
+      if [[ "$ENV_RESULT" != "" ]];then
+        DEV_JAVA_PORT=`sed '/^DEV_JAVA_PORT=/!d;s/.*=//' dev.config`
+        DEV_DUBBO_PORT=`sed '/^DEV_DUBBO_PORT=/!d;s/.*=//' dev.config`
+
+        if [[ -f "build/libs/runWeb.jar" ]];then
+          wget_dockerfile
+          sed -i "s/JAVAJARFILE/runWeb/g" Dockerfile
+          push_dev web
+        fi
+        if [[ -f "build/libs/runSchedule.jar" ]];then
+          wget_dockerfile
+          sed -i "s/JAVAJARFILE/runSchedule/g" Dockerfile
+          push_dev schedule
+        fi
+        if [[ -f "build/libs/runConsumer.jar" ]];then
+          wget_dockerfile
+          sed -i "s/JAVAJARFILE/runConsumer/g" Dockerfile
+          push_dev consumer
+        fi          
+      else
+        if [[ -f "build/libs/runWeb.jar" ]];then
+          wget_dockerfile
+          sed -i "s/JAVAJARFILE/runWeb/g" Dockerfile
+          push_fat web
+        fi
+        if [[ -f "build/libs/runSchedule.jar" ]];then
+          wget_dockerfile
+          sed -i "s/JAVAJARFILE/runSchedule/g" Dockerfile
+          push_fat schedule
+        fi
+        if [[ -f "build/libs/runConsumer.jar" ]];then
+          wget_dockerfile
+          sed -i "s/JAVAJARFILE/runConsumer/g" Dockerfile
+          push_fat consumer
+        fi
+      fi
+
+
+compile-build:
+  <<: *build_image
+  stage: build
+  script:
+    - gradle clean
+    - gradle --build-cache assemble
+  except:
+    changes:
+      - /*.{md}
+      - "LICENSE"
+      - ".gitignore"
+      - ".gitlab-ci.yml"
+      - "dev.config"
+  tags:
+  - test
+
+maven-build:
+  <<: *build_image
+  stage: build
+  only:
+    - /^v[0-9]+\.[0-9]+\.[0-9]+$/
+  script:
+    - gradle clean
+    - gradle --build-cache assemble
+    - cd pay-alipay
+    - gradle uploadArchives
+    - cd ../pay-all
+    - gradle uploadArchives
+    - cd ../pay-core
+    - gradle uploadArchives
+    - cd ../pay-wxpay
+    - gradle uploadArchives
+  tags:
+  - test
+ 
+dev-build:
+  <<: *build_image
+  stage: build
+  script:
+    - gradle clean
+    - gradle --build-cache assemble
+    - cd build/libs
+  artifacts:
+    paths:
+    - build/libs
+    expire_in: 1h
+  only:
+    variables:
+      - $CI_COMMIT_TAG =~ /dev-/
+  tags:
+  - test
+  
+dev-push:
+  image: images.qlteacher.com/base/docker:19.03.4
+  stage: push
+  script: *push_images
+  only:
+    variables:
+      - $CI_COMMIT_TAG =~ /dev-/
+  tags:
+  - test
+
+dev-deploy:
+  image: images.qlteacher.com/base/dev-deploy:0.0.1
+  stage: deploy
+  variables:
+    CONF_REPO: "https://git.qltechdev.com/api/v4/projects/33/repository/files"
+  script:
+    - DEPLOY_HOST=$(sed '/^DEPLOY_HOST=/!d;s/.*=//' dev.config)
+    - DEV_WEB=$(sed '/^DEV_WEB=/!d;s/.*=//' dev.config)
+    - DEV_SCHEDULE=$(sed '/^DEV_SCHEDULE=/!d;s/.*=//' dev.config)
+    - DEV_CONSUMER=$(sed '/^DEV_CONSUMER=/!d;s/.*=//' dev.config)
+    - >
+      deploy_app(){
+        ssh "$DEPLOY_HOST" "if [ ! -d /usr/local/$CI_PROJECT_NAME-$1 ];then mkdir /usr/local/$CI_PROJECT_NAME-$1;fi"
+        ssh "$DEPLOY_HOST" wget --header "PRIVATE-TOKEN:${GITLAB_TOKEN}" "$CONF_REPO"/docker%2Fdocker-compose.yaml/raw?ref=master -O /usr/local/"$CI_PROJECT_NAME"-"$1"/docker-compose.yaml
+        ssh "$DEPLOY_HOST" sed -i "s/SERVICENAME/$CI_PROJECT_NAME-$1/g" /usr/local/"$CI_PROJECT_NAME"-"$1"/docker-compose.yaml
+        ssh "$DEPLOY_HOST" sed -i "s/CONTAINERNAME/$CI_PROJECT_NAME-$1/g" /usr/local/"$CI_PROJECT_NAME"-"$1"/docker-compose.yaml
+        ssh "$DEPLOY_HOST" sed -i "s/IMAGENAME/$CI_PROJECT_NAME-$1:$CI_COMMIT_TAG/g" /usr/local/"$CI_PROJECT_NAME"-"$1"/docker-compose.yaml
+        ssh "$DEPLOY_HOST" "cd /usr/local/$CI_PROJECT_NAME-$1 && docker-compose down"
+        ssh "$DEPLOY_HOST" "cd /usr/local/$CI_PROJECT_NAME-$1 && docker-compose up -d"
+      }
+    - |
+      if [ "$DEV_WEB" = "1" ];then
+        deploy_app web
+      fi
+      if [ "$DEV_SCHEDULE" = "1" ];then
+        deploy_app schedule
+      fi
+      if [ "$DEV_CONSUMER" = "1" ];then
+        deploy_app consumer
+      fi
+
+  dependencies: []
+  only:
+    variables:
+      - $CI_COMMIT_TAG =~ /dev-/
+  tags:
+  - test
+
+
+fat-build:
+  <<: *build_image
+  stage: build
+  script:
+    - gradle clean
+    - gradle --build-cache assemble
+    - cd build/libs
+  artifacts:
+    paths:
+    - build/libs
+    expire_in: 1h
+  only:
+    variables:
+      - $CI_COMMIT_TAG =~ /fat-/
+  tags:
+  - test
+  
+fat-push:
+  image: images.qlteacher.com/base/docker:19.03.4
+  stage: push
+  script: *push_images
+  only:
+    variables:
+      - $CI_COMMIT_TAG =~ /fat-/
+  tags:
+  - test
+
+fat-deploy-k8s:
+  image: images.qlteacher.com/base/deploy:0.0.1
+  stage: deploy
+  variables:
+    CONF_REPO: "https://git.qltechdev.com/api/v4/projects/33/repository/files"
+  script:
+    - wget --header "PRIVATE-TOKEN:${GITLAB_TOKEN}" $CONF_REPO/k8s-yaml%2Fcommon-java-deployment.yaml/raw?ref=master -O common-java-deployment.yaml
+    - sed -i "s/tagid/$CI_COMMIT_TAG/g" common-java-deployment.yaml
+    - sed -i "s/projectname/$CI_PROJECT_NAME/g" common-java-deployment.yaml
+    - kubectl apply -f common-java-deployment.yaml
+  dependencies: []
+  only:
+    variables:
+      - $CI_COMMIT_TAG =~ /fat-/
+  tags:
+  - test

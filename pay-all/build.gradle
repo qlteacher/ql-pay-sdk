@@ -1,0 +1,4 @@
+dependencies {
+	api project(":pay-alipay")
+	api project(":pay-wxpay")
+}

@@ -1,0 +1,122 @@
+buildscript {
+	ext{
+		p3cPmdVersion = "2.0.0"
+    	pmdVersion = '6.19.0'
+    	springBootGradlePluginVersion="2.1.6.RELEASE"
+    	lombokGradlePluginVersion="5.1.0"
+    	springbootVersion="2.1.6.RELEASE"
+	}
+
+    repositories {
+    	maven { url 'https://maven.aliyun.com/repository/public/' }
+    	maven { url "https://plugins.gradle.org/m2/" }
+    	mavenLocal()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootGradlePluginVersion}")
+        classpath("io.freefair.gradle:lombok-plugin:${lombokGradlePluginVersion}")
+    }
+}
+
+
+allprojects {
+    group 'com.qlteacher'
+    version '1.1.0'
+    description = 'pay-sdk项目'
+    
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/public/' }
+        mavenLocal()
+        mavenCentral()
+    }
+    
+	apply plugin: 'java-library'
+	apply plugin: 'pmd'
+	apply plugin: "io.freefair.lombok"
+
+    if (JavaVersion.current().isJava8Compatible()) {
+        allprojects {
+            tasks.withType(Javadoc) {
+                options.encoding = 'UTF-8'
+                options.addStringOption('Xdoclint:none', '-quiet') // 关闭JDK1.8的doclint特性
+            }
+        }
+    }
+
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+    // 打包源代码，为了方便查看源码及调试，把源码也上传到nexus仓库中
+    task sourcesJar(type: Jar) {
+        classifier = 'sources'
+        from sourceSets.main.allSource
+    }
+    
+    //jar {
+    //    version = null
+    //}
+
+    javadoc {
+        options{
+            encoding "UTF-8"
+            charSet 'UTF-8'
+            author true
+            version true
+        }
+    }
+
+    artifacts {
+        archives jar
+        archives sourcesJar
+        //archives javadocJar
+    }
+    
+    
+    wrapper{
+	    gradleVersion = '5.6'
+	    distributionUrl = "https://services.gradle.org/distributions/gradle-5.6.4-all.zip"
+	}
+    
+    tasks.withType(JavaCompile) { 
+        options.encoding = "UTF-8"
+        options.compilerArgs << "-Xlint:unchecked" << "-Werror"
+    }
+
+    configurations {
+		all*.exclude group:'ch.qos.logback',module:"logback-classic"
+		all*.exclude group:'org.apache.logging.log4j',module: "log4j-to-slf4j" 
+		all*.exclude group:'org.slf4j',module: "slf4j-log4j12" 
+		all*.exclude group:'org.springframework.boot',module: "spring-boot-starter-logging" 
+	}
+
+    //skip Test tasks
+    gradle.taskGraph.whenReady {
+        tasks.each { task ->
+            if (task.name.contains("test")){
+                task.enabled = false
+            }
+        }
+    }
+    
+    pmd {
+	  toolVersion = pmdVersion 
+	  ignoreFailures = false
+	  //analysisCache = true 这个版本的gradle还不支持
+	  //incrementalAnalysis = true
+	  consoleOutput = true
+	  rulePriority = 3
+	  pmdTest.enabled=false
+	  reportsDir = file("${rootDir}/build/reports/")
+	  //这里有空应该改成配置在gradle里面的
+	  ruleSetFiles  = files("${rootDir}/ruleset/ruleset.xml")
+	   //清空默认的ruleset 参见https://docs.gradle.org/current/dsl/org.gradle.api.plugins.quality.Pmd.html#org.gradle.api.plugins.quality.Pmd:ruleSets
+	  ruleSets = []
+	}
+	
+	dependencies {
+	  pmd "com.alibaba.p3c:p3c-pmd:${p3cPmdVersion}"
+	}
+    
+    
+}

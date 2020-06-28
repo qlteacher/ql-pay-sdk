@@ -1,0 +1,6 @@
+dependencies {
+	api project(":pay-core")
+	
+	api("com.alipay.sdk:alipay-sdk-java:4.9.106.ALL")
+	api("com.alipay.sdk:alipay-easysdk:1.2.0")
+}

@@ -1,0 +1,24 @@
+alipay:
+  appId: 20##################3
+  privateKey: #####################
+  merchantCertPath: cert/ali/sandbox/appCertPublicKey_#####.crt
+  alipayCertPath: cert/ali/sandbox/alipayCertPublicKey_RSA2.crt
+  alipayRootCertPath: cert/ali/sandbox/alipayRootCert.crt
+  notifyUrl: http://www.######.com/notify
+  returnUrl: http://www.######.com/return
+  test: true #是否使用沙箱
+  certModel: CSR
+  signType: RSA2
+  msgType: json
+
+wechat:
+  miniAppId: wxxxxxxxxxxx6bf9b
+  miniAppSecret: xxbc6xxxxxxxxxxxxxx9c49d
+  appAppId: wxxxxxxxxxxxx43b0
+  certPath: cert/weixin/wxpay.p12
+  mchId: 1########580507371
+  innerConfig:
+    appId: A###0
+    notifyUrl: http://www.####.com/notify
+    privateKey: A######0
+    test: true #是否使用沙箱

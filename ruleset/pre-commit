@@ -1,0 +1,5 @@
+#!/bin/bash
+echo "正在执行代码规范检查!!"
+./gradlew check -Dfile.encoding=UTF-8
+echo "代码检查通过 :)"
+exit 0

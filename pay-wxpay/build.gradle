@@ -1,0 +1,6 @@
+dependencies {
+	api project(":pay-core")
+	api("com.github.wxpay:wxpay-sdk:3.0.9")
+	
+	api 'org.bouncycastle:bcprov-jdk15to18:1.65'
+}

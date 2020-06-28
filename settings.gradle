@@ -1,0 +1,6 @@
+rootProject.name = 'pay-sdk'
+include 'pay-core'
+include 'pay-alipay'
+include 'pay-wxpay'
+include 'pay-all'
+include 'pay-demo'

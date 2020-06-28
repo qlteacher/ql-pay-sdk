@@ -1,0 +1,8 @@
+/.gradle/
+pay-alipay/.settings
+pay-alipay/.classpath
+pay-alipay/.project
+.settings
+*.project
+*.classpath
+build

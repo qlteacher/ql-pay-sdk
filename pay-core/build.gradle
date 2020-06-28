@@ -1,0 +1,8 @@
+dependencies {
+	//api("com.qlteacher:common-utils:${qlteacherCommonVersion}")
+	//api("com.qlteacher:common-log:${qlteacherCommonVersion}")
+	api ("org.apache.commons:commons-lang3:3.10")
+	api 'com.google.code.gson:gson:2.8.6'
+	api group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.13.3'
+	api group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.13.3'
+}

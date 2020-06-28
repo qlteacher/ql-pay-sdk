@@ -1,0 +1,26 @@
+apply plugin: "org.springframework.boot"
+
+dependencies {
+	api project(":pay-all")
+	
+	api("org.springframework.boot:spring-boot-starter-web:${springbootVersion}")
+	api("org.springframework.boot:spring-boot-starter-log4j2:${springbootVersion}")
+	api("org.springframework.boot:spring-boot-starter-freemarker:${springbootVersion}")
+	
+}
+
+
+task makeDockerJar(type: Copy) {
+    from project.buildDir.getPath()+File.separator+"libs"+File.separator +project.name+"-"+project.version+".jar"
+    into project.parent.buildDir.getPath()+File.separator+"libs"
+    rename(project.name+"-"+project.version+".jar","runWeb.jar")
+}
+
+task copyCet(type: Copy){
+    from project.buildDir.getPath()+File.separator+"resources"+File.separator +"main"+File.separator+"cert"
+    into project.parent.buildDir.getPath()+File.separator+"libs"+File.separator+"cert"
+}
+
+bootJar {
+    finalizedBy makeDockerJar,copyCet
+}
