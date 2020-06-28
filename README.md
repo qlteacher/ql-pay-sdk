@@ -66,10 +66,10 @@ public static AliPayConfig initConfig() {
         conf.setMiniAppSecret("xxbc6xxxxxxxxxxxxxx9c49d");
         conf.setAppAppId("wxxxxxxxxxxxx43b0");
         conf.setCertPath("cert/weixin/apiclient_cert.p12");
-        conf.setMchID("1580507371");
-        conf.setAppid("wxbd5f876e38982fc1");
+        conf.setMchID("xxxxxx");
+        conf.setAppid("xxxxxxxxxxx");
         conf.setNotifyUrl("http://www.qltechdev.com/paydemo/notify");
-        conf.setPrivateKey("AAAAB3NzaC1yc2EAAAADAQABAAACAQC0");
+        conf.setPrivateKey("xxxxxxxxxxxxxx");
         conf.setSignType("HMACSHA256");//正式环境必须是SHA256
         conf.setTest(false);
         return conf;
